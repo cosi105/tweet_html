@@ -13,8 +13,8 @@ if Sinatra::Base.production?
   end
   rabbit = Bunny.new(ENV['CLOUDAMQP_URL'])
 else
-  Dotenv.load 'local_vars.env'
-  REDIS = Redis.new
+  REDIS_EVEN = Redis.new
+  REDIS_ODD = Redis.new(port: 6380)
   rabbit = Bunny.new(automatically_recover: false)
 end
 
@@ -56,6 +56,6 @@ def fanout_to_html(body)
   payload = {
     tweet_html: redis_shard.get(tweet_id),
     user_ids: body['follower_ids']
-  }
+  }.to_json
   RABBIT_EXCHANGE.publish(payload, routing_key: HTML_FANOUT.name)
 end
