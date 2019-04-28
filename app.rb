@@ -26,8 +26,15 @@ follower_ids = channel.queue('new_tweet.follower_ids')
 HTML_FANOUT = channel.queue('new_tweet.html_fanout')
 seed = channel.queue('tweet.data.seed')
 TIMELINE_SEED = channel.queue('timeline.html.seed')
+new_follow_sorted_tweets = channel.queue('new_follow.sorted_tweets')
+new_follow_sorted_html = channel.queue('new_follow.sorted_html')
 
-# Takes a new_tweet payload, generates the tweet's html & caches it
+# Re-renders & publishes the HTML upon receiving new/modified Timeline Tweet IDs.
+new_follow_sorted_tweets.subscribe(block: false) do |delivery_info, properties, body|
+  publish_new_timeline_html(JSON.parse(body))
+end
+
+# Takes a new_tweet payload, generates the Tweet's html & caches it.
 new_tweet.subscribe(block: false) do |delivery_info, properties, body|
   json_to_html(JSON.parse(body))
 end
@@ -40,6 +47,22 @@ end
 
 seed.subscribe(block: false) do |delivery_info, properties, body|
   seed_tweets(JSON.parse(body))
+end
+
+# Given a payload with a Timeline Owner/Follower ID & new Timeline Tweet IDs,
+# renders & publishes new Timeline HTML.
+def publish_new_timeline_html(body)
+  sorted_tweet_ids = body['sorted_tweet_ids'].map(&:to_i)
+  evens = sorted_tweet_ids.select(&:even?)
+  odds = sorted_tweet_ids.select(&:odd?)
+  even_html_map = REDIS_EVEN.mapped_mget(evens)
+  odd_html_map = REDIS_ODD.mapped_mget(odds)
+  new_html = even_html_map.merge(odd_html_map).sort_by { |k, v| k }.map(&:last).join
+  payload = {
+    owner_id: body['follower_id'],
+    new_timeline_html: new_html
+  }.to_json
+  RABBIT_EXCHANGE.publish(payload, routing_key: new_follow_sorted_html.name)
 end
 
 def get_shard(tweet_id)
