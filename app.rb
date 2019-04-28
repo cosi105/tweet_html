@@ -29,11 +29,6 @@ TIMELINE_SEED = channel.queue('timeline.html.seed')
 new_follow_sorted_tweets = channel.queue('new_follow.sorted_tweets')
 new_follow_sorted_html = channel.queue('new_follow.sorted_html')
 
-# Generates & caches HTML for each Tweet in a seed payload.
-seed.subscribe(block: false) do |delivery_info, properties, body|
-  seed_html(JSON.parse(body))
-end
-
 # Re-renders & publishes the HTML upon receiving new/modified Timeline Tweet IDs.
 new_follow_sorted_tweets.subscribe(block: false) do |delivery_info, properties, body|
   publish_new_timeline_html(JSON.parse(body))
