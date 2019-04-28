@@ -8,25 +8,15 @@ Production deployment: https://nano-twitter-tweet-html.herokuapp.com/
 [![Maintainability](https://api.codeclimate.com/v1/badges/0e9369f1900877991f67/maintainability)](https://codeclimate.com/github/cosi105/tweet_html/maintainability)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/0e9369f1900877991f67/test_coverage)](https://codeclimate.com/github/cosi105/tweet_html/test_coverage)
 
-## Subscribed Queues
+## Message Queues
 
-### new\_tweet.tweet\_data
-
-- author_id
-- tweet_id
-- tweet_body
-
-### new\_tweet.follower\_ids
-
-- tweet_id
-- follower_ids
-
-## Published Queues
-
-### new\_tweet.html\_fanout
-
-- tweet_html
-- follower_ids
+| Relation | Queue Name | Payload | Interaction |
+| :------- | :--------- | :------ |:--
+| Subscribes to | `new_tweet.tweet_data` | `{author_id, author_handle, tweet_id, tweet_body, tweet_created}` | Renders the given tweet as HTML and caches it.
+| Subscribes to | `new_tweet.follower_ids` | `{tweet_id, [follower_ids]}` | Gets the HTML of the given tweet and publishes to `new_tweet.html_fanout`.
+| Publishes to | `new_tweet.html_fanout` | `{tweet_html, [user_ids]}` | Publishes the HTML of a new tweet and a list of followers who need that tweet added to their cached timeline HTML.
+| Subscribes to | `new_follow.sorted_tweets` | `{user_id, [sorted_tweet_ids]}` | Gets the HTML of all of the given tweets and publishes them to `new_follow.sorted_html`.
+| Publishes to | `new_follow.sorted_html` | `{user_id, [sorted_tweets]}` | Publishes a user's entire timeline as a series of HTML tweets, after it has been modified by a new follow from the user.
 
 ## Caches
 
