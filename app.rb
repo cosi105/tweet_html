@@ -24,8 +24,14 @@ RABBIT_EXCHANGE = channel.default_exchange
 new_tweet = channel.queue('new_tweet.tweet_data')
 follower_ids = channel.queue('new_tweet.follower_ids')
 HTML_FANOUT = channel.queue('new_tweet.html_fanout')
+seed = channel.queue('tweet.html.router.seed')
 
-# Takes a new_tweet payload, generates the tweet's html & caches it
+# Generates & caches HTML for each Tweet in a seed payload.
+seed.subscribe(block: false) do |delivery_info, properties, body|
+  seed_html(JSON.parse(body))
+end
+
+# Takes a new_tweet payload, generates the Tweet's html & caches it
 new_tweet.subscribe(block: false) do |delivery_info, properties, body|
   tweet_json = JSON.parse(body)
   tweet_id = tweet_json['tweet_id'].to_i
@@ -38,6 +44,15 @@ end
 # who need to have the new Tweet added to their timeline HTML.
 follower_ids.subscribe(block: false) do |delivery_info, properties, body|
   fanout_to_html(JSON.parse(body))
+end
+
+# Renders & chaches HTML for each Tweet in a seed payload.
+def seed_html(body)
+  body.each do |tweet_json|
+    tweet_html = render_html(tweet_json)
+    redis_shard = tweet_id.even? ? REDIS_EVEN : REDIS_ODD # Thread safe?
+    redis_shard.set(tweet_id, tweet_html)
+  end
 end
 
 # Generates & returns a Tweet's (timeline piece) HTML
