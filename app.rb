@@ -4,6 +4,11 @@ Bundler.require
 
 set :port, 8080 unless Sinatra::Base.production?
 
+def redis_from_uri(key)
+  uri = URI.parse(ENV[key])
+  Redis.new(host: uri.host, port: uri.port, password: uri.password)
+end
+
 if Sinatra::Base.production?
   configure do
     REDIS_EVEN = redis_from_uri('REDIS_EVEN_URL')
@@ -64,11 +69,6 @@ def cache_tokens(body)
     REDIS_SEARCH_HTML.ltrim(token, 0, 50)
     puts "Cached token: #{token}"
   end
-end
-
-def redis_from_uri(key)
-  uri = URI.parse(ENV[key])
-  Redis.new(host: uri.host, port: uri.port, password: uri.password)
 end
 
 # Given a payload with a Timeline Owner/Follower ID & new Timeline Tweet IDs,
