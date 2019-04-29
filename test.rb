@@ -60,11 +60,8 @@ describe 'NanoTwitter' do
       'tweet_id': '1',
       'follower_ids': %w[2 3 4]
     }.to_json
-    HTML_FANOUT.purge
     fanout_to_html JSON.parse(follow_payload)
-    msg_json = JSON.parse HTML_FANOUT.pop.last
-    msg_json['tweet_html'].must_equal @expected_html
-    msg_json['user_ids'].must_equal %w[2 3 4]
+    %w[2 3 4].each { |i| REDIS_TIMELINE_HTML.get(i).must_equal @expected_html }
   end
 
   it 'can fan out a tweet from a queue' do
@@ -73,12 +70,9 @@ describe 'NanoTwitter' do
       'tweet_id': '1',
       'follower_ids': %w[2 3 4]
     }.to_json
-    HTML_FANOUT.purge
     RABBIT_EXCHANGE.publish(follow_payload, routing_key: 'new_tweet.follower_ids')
     sleep 3
-    msg_json = JSON.parse HTML_FANOUT.pop.last
-    msg_json['tweet_html'].must_equal @expected_html
-    msg_json['user_ids'].must_equal %w[2 3 4]
+    %w[2 3 4].each { |i| REDIS_TIMELINE_HTML.get(i).must_equal @expected_html }
   end
 
   it 'can seed tweets' do
@@ -88,16 +82,13 @@ describe 'NanoTwitter' do
     expected_html2 = "<li>#{@tweet_body}!<br>- #{@author_handle} #{@tweet_created}</li>"
     payload = [{ owner_id: 2,
                  sorted_tweets: [JSON.parse(@tweet), tweet2] }].to_json
-    TIMELINE_SEED.purge
     seed_tweets(JSON.parse(payload))
     REDIS_EVEN.keys.count.must_equal 1
     REDIS_ODD.keys.count.must_equal 1
     REDIS_ODD.get('1').must_equal @expected_html
     REDIS_EVEN.get('2').must_equal expected_html2
-    expected_json = [{ owner_id: 2,
-                       sorted_tweets: [@expected_html, expected_html2] }].to_json
-    msg_json = JSON.parse(TIMELINE_SEED.pop.last)
-    JSON.parse(expected_json).must_equal msg_json
+    expected_timeline_html = @expected_html + expected_html2
+    REDIS_TIMELINE_HTML.get(2).must_equal expected_timeline_html
   end
 
   it 'can seed tweets from the seed queue' do
@@ -113,10 +104,8 @@ describe 'NanoTwitter' do
     REDIS_ODD.keys.count.must_equal 1
     REDIS_ODD.get('1').must_equal @expected_html
     REDIS_EVEN.get('2').must_equal expected_html2
-    expected_json = [{ owner_id: 2,
-                       sorted_tweets: [@expected_html, expected_html2] }].to_json
-    msg_json = JSON.parse(TIMELINE_SEED.pop.last)
-    JSON.parse(expected_json).must_equal msg_json
+    expected_timeline_html = @expected_html + expected_html2
+    REDIS_TIMELINE_HTML.get(2).must_equal expected_timeline_html
   end
 
   it 'can publish a new timeline' do
@@ -132,14 +121,9 @@ describe 'NanoTwitter' do
       follower_id: 2,
       sorted_tweet_ids: [1, 2]
     }.to_json
-    SORTED_HTML.purge
-    publish_new_timeline_html(JSON.parse(payload))
-    expected_json = {
-      owner_id: 2,
-      new_timeline_html: @expected_html + expected_html2
-    }.to_json
-    msg_json = JSON.parse(SORTED_HTML.pop.last)
-    msg_json.must_equal JSON.parse(expected_json)
+    cache_new_timeline_html(JSON.parse(payload))
+    expected_timeline_html = @expected_html + expected_html2
+    REDIS_TIMELINE_HTML.get(2).must_equal expected_timeline_html
   end
 
   it 'can publish a new timeline from queue' do
@@ -155,14 +139,9 @@ describe 'NanoTwitter' do
       follower_id: 2,
       sorted_tweet_ids: [1, 2]
     }.to_json
-    SORTED_HTML.purge
     RABBIT_EXCHANGE.publish(payload, routing_key: 'new_follow.sorted_tweets')
     sleep 3
-    expected_json = {
-      owner_id: 2,
-      new_timeline_html: @expected_html + expected_html2
-    }.to_json
-    msg_json = JSON.parse(SORTED_HTML.pop.last)
-    msg_json.must_equal JSON.parse(expected_json)
+    expected_timeline_html = @expected_html + expected_html2
+    REDIS_TIMELINE_HTML.get(2).must_equal expected_timeline_html
   end
 end
