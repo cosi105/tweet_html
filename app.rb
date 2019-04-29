@@ -27,7 +27,7 @@ HTML_FANOUT = channel.queue('new_tweet.html_fanout')
 seed = channel.queue('tweet.data.seed')
 TIMELINE_SEED = channel.queue('timeline.html.seed')
 new_follow_sorted_tweets = channel.queue('new_follow.sorted_tweets')
-new_follow_sorted_html = channel.queue('new_follow.sorted_html')
+SORTED_HTML = channel.queue('new_follow.sorted_html')
 
 # Re-renders & publishes the HTML upon receiving new/modified Timeline Tweet IDs.
 new_follow_sorted_tweets.subscribe(block: false) do |delivery_info, properties, body|
@@ -62,7 +62,7 @@ def publish_new_timeline_html(body)
     owner_id: body['follower_id'],
     new_timeline_html: new_html
   }.to_json
-  RABBIT_EXCHANGE.publish(payload, routing_key: new_follow_sorted_html.name)
+  RABBIT_EXCHANGE.publish(payload, routing_key: SORTED_HTML.name)
 end
 
 def get_shard(tweet_id)
@@ -71,9 +71,11 @@ end
 
 def json_to_html(tweet)
   tweet_id = tweet['tweet_id'].to_i
-  tweet_html = render_html(tweet)
   redis_shard = get_shard(tweet_id)
-  redis_shard.set(tweet_id, tweet_html)
+  unless redis_shard.exists(tweet_id)
+    tweet_html = render_html(tweet)
+    redis_shard.set(tweet_id, tweet_html)
+  end
 end
 
 # Generates & returns a Tweet's (timeline piece) HTML
@@ -101,13 +103,13 @@ def seed_tweets(body)
   body.each do |timeline|
     timeline_owner_id = timeline['owner_id']
     tweets = timeline['sorted_tweets']
-    tweets.each { |tweet| json_to_html(tweet) }
     tweets_as_html = []
     tweets.each do |tweet|
+      json_to_html(tweet)
       tweet_id = tweet['tweet_id'].to_i
       tweets_as_html << get_shard(tweet_id).get(tweet_id)
     end
-    payload << {owner_id: timeline_owner_id, sorted_tweets: tweets_as_html}
+    payload << { owner_id: timeline_owner_id, sorted_tweets: tweets_as_html } unless timeline_owner_id == -1
   end
   RABBIT_EXCHANGE.publish(payload.to_json, routing_key: TIMELINE_SEED.name)
 end

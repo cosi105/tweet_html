@@ -22,3 +22,7 @@ Production deployment: https://nano-twitter-tweet-html.herokuapp.com/
 
 ### tweet\_id: tweet\_html (tweets with even ids)
 ### tweet\_id: tweet\_html (tweets with odd ids)
+
+## Seeding
+
+This service subscribes to the `tweet.data.seed` queue, which the main NanoTwitter app uses to publish all all of the tweets in timeline format (i.e. a mapping of users to the tweets that belong in their timeline). The service not only builds its cache from the tweets within those timelines, but it then also arranges timelines as HTML strings to send to the Timeline HTML service via the `timeline.html.seed` queue.
