@@ -2,19 +2,21 @@ require 'bundler'
 require 'json'
 Bundler.require
 
-set :port, 8082 unless Sinatra::Base.production?
+set :port, 8080 unless Sinatra::Base.production?
 
 if Sinatra::Base.production?
   configure do
     REDIS_EVEN = redis_from_uri('REDIS_EVEN_URL')
     REDIS_ODD = redis_from_uri('REDIS_ODD_URL')
     REDIS_TIMELINE_HTML = redis_from_uri('TIMELINE_HTML_URL')
+    REDIS_SEARCH_HTML = redis_from_uri('SEARCH_HTML_URL')
   end
   rabbit = Bunny.new(ENV['CLOUDAMQP_URL'])
 else
   REDIS_EVEN = Redis.new(port: 6384)
   REDIS_ODD = Redis.new(port: 6383)
   REDIS_TIMELINE_HTML = Redis.new # port 6379
+  REDIS_SEARCH_HTML = Redis.new(port: 6382)
   rabbit = Bunny.new(automatically_recover: false)
 end
 
@@ -25,6 +27,7 @@ new_tweet = channel.queue('new_tweet.tweet_data')
 follower_ids = channel.queue('new_tweet.follower_ids')
 seed = channel.queue('tweet.data.seed')
 new_follow_sorted_tweets = channel.queue('new_follow.sorted_tweets')
+search_html = channel.queue('searcher.html')
 
 # Re-renders & publishes the HTML upon receiving new/modified Timeline Tweet IDs.
 new_follow_sorted_tweets.subscribe(block: false) do |delivery_info, properties, body|
@@ -44,6 +47,20 @@ end
 
 seed.subscribe(block: false) do |delivery_info, properties, body|
   seed_tweets(JSON.parse(body))
+end
+
+search_html.subscribe(block: false) do |delivery_info, properties, body|
+  cache_tokens(JSON.parse(body))
+end
+
+def cache_tokens(body)
+  tweet_id = body['tweet_id'].to_i
+  shard = get_shard(tweet_id)
+  sleep(0.1) until shard.exists(tweet_id)
+  tweet_html = shard.get(tweet_id)
+  body['tokens'].to_set.each do |token| 
+    REDIS_SEARCH_HTML.lpush(token, tweet_html)
+  end
 end
 
 def redis_from_uri(key)
