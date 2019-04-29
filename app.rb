@@ -6,8 +6,8 @@ set :port, 8082 unless Sinatra::Base.production?
 
 if Sinatra::Base.production?
   configure do
-    redis_even_uri = URI.parse(ENV['REDIS_URL'])
-    redis_odd_uri = URI.parse(ENV['HEROKU_REDIS_PURPLE_URL'])
+    redis_even_uri = URI.parse(ENV['REDIS_EVEN_URL'])
+    redis_odd_uri = URI.parse(ENV['REDIS_ODD_URL'])
     REDIS_EVEN = Redis.new(host: redis_even_uri.host, port: redis_even_uri.port, password: redis_even_uri.password)
     REDIS_ODD = Redis.new(host: redis_odd_uri.host, port: redis_odd_uri.port, password: redis_odd_uri.password)
   end
