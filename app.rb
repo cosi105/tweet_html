@@ -25,7 +25,7 @@ channel = rabbit.create_channel
 RABBIT_EXCHANGE = channel.default_exchange
 new_tweet = channel.queue('new_tweet.tweet_data')
 follower_ids = channel.queue('new_tweet.follower_ids')
-seed = channel.queue('timeline.data.seed')
+seed = channel.queue('timeline.data.seed.tweet_html')
 new_follow_sorted_tweets = channel.queue('new_follow.sorted_tweets')
 search_html = channel.queue('searcher.html')
 
@@ -46,6 +46,8 @@ follower_ids.subscribe(block: false) do |delivery_info, properties, body|
 end
 
 seed.subscribe(block: false) do |delivery_info, properties, body|
+  REDIS_EVEN.flushall
+  REDIS_ODD.flushall
   seed_tweets(JSON.parse(body))
 end
 
@@ -56,10 +58,11 @@ end
 def cache_tokens(body)
   tweet_id = body['tweet_id'].to_i
   shard = get_shard(tweet_id)
-  sleep(0.1) until shard.exists(tweet_id)
   tweet_html = shard.get(tweet_id)
   body['tokens'].to_set.each do |token|
     REDIS_SEARCH_HTML.lpush(token, tweet_html)
+    REDIS_SEARCH_HTML.ltrim(token, 0, 50)
+    puts "Cached token: #{token}"
   end
 end
 
@@ -76,7 +79,8 @@ def cache_new_timeline_html(body)
   odds = sorted_tweet_ids.select(&:odd?)
   even_html_map = REDIS_EVEN.mapped_mget(evens)
   odd_html_map = REDIS_ODD.mapped_mget(odds)
-  new_html = even_html_map.merge(odd_html_map).sort_by { |k, v| k }.map(&:last).join
+  all_html = even_html_map.merge(odd_html_map).sort_by { |k, v| k }.map(&:last)
+  new_html = all_html[0..50].join
   REDIS_TIMELINE_HTML.set(body['follower_id'].to_i, new_html)
 end
 
@@ -90,6 +94,7 @@ def json_to_html(tweet)
   unless redis_shard.exists(tweet_id)
     tweet_html = render_html(tweet)
     redis_shard.set(tweet_id, tweet_html)
+    puts "Rendered tweet #{tweet['tweet_id']}"
   end
 end
 
@@ -111,15 +116,13 @@ def fanout_to_html(body)
 end
 
 def seed_tweets(body)
-  body.each do |timeline|
-    timeline_owner_id = timeline['owner_id']
-    tweets = timeline['sorted_tweets']
-    tweets_as_html = []
-    tweets.each do |tweet|
-      json_to_html(tweet)
-      tweet_id = tweet['tweet_id'].to_i
-      tweets_as_html << get_shard(tweet_id).get(tweet_id)
-    end
-    REDIS_TIMELINE_HTML.set(timeline_owner_id.to_i, tweets_as_html.join) unless timeline_owner_id == -1
+  timeline_owner_id = body['owner_id']
+  tweets = body['sorted_tweets']
+  tweets_as_html = []
+  tweets.each do |tweet|
+    json_to_html(tweet)
+    tweet_id = tweet['tweet_id'].to_i
+    tweets_as_html << get_shard(tweet_id).get(tweet_id)
   end
+  REDIS_TIMELINE_HTML.set(timeline_owner_id.to_i, tweets_as_html[0..50].join) unless timeline_owner_id == -1
 end
