@@ -100,7 +100,7 @@ describe 'NanoTwitter' do
     expected_html2 = "<li>#{@tweet_body}!<br>- #{@author_handle} #{@tweet_created}</li>"
     payload = [{ owner_id: 2,
                  sorted_tweets: [JSON.parse(@tweet), tweet2] }].to_json
-    RABBIT_EXCHANGE.publish(payload, routing_key: 'tweet.data.seed')
+    RABBIT_EXCHANGE.publish(payload, routing_key: 'timeline.data.seed')
     sleep 3
     REDIS_EVEN.keys.count.must_equal 1
     REDIS_ODD.keys.count.must_equal 1

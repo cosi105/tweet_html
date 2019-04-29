@@ -25,7 +25,7 @@ channel = rabbit.create_channel
 RABBIT_EXCHANGE = channel.default_exchange
 new_tweet = channel.queue('new_tweet.tweet_data')
 follower_ids = channel.queue('new_tweet.follower_ids')
-seed = channel.queue('tweet.data.seed')
+seed = channel.queue('timeline.data.seed')
 new_follow_sorted_tweets = channel.queue('new_follow.sorted_tweets')
 search_html = channel.queue('searcher.html')
 
@@ -58,7 +58,7 @@ def cache_tokens(body)
   shard = get_shard(tweet_id)
   sleep(0.1) until shard.exists(tweet_id)
   tweet_html = shard.get(tweet_id)
-  body['tokens'].to_set.each do |token| 
+  body['tokens'].to_set.each do |token|
     REDIS_SEARCH_HTML.lpush(token, tweet_html)
   end
 end
