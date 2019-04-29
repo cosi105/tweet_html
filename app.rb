@@ -6,15 +6,15 @@ set :port, 8082 unless Sinatra::Base.production?
 
 if Sinatra::Base.production?
   configure do
-    redis_even_uri = URI.parse(ENV['REDIS_EVEN_URL'])
-    redis_odd_uri = URI.parse(ENV['REDIS_ODD_URL'])
-    REDIS_EVEN = Redis.new(host: redis_even_uri.host, port: redis_even_uri.port, password: redis_even_uri.password)
-    REDIS_ODD = Redis.new(host: redis_odd_uri.host, port: redis_odd_uri.port, password: redis_odd_uri.password)
+    REDIS_EVEN = redis_from_uri('REDIS_EVEN_URL')
+    REDIS_ODD = redis_from_uri('REDIS_ODD_URL')
+    REDIS_TIMELINE_HTML = redis_from_uri('TIMELINE_HTML_URL')
   end
   rabbit = Bunny.new(ENV['CLOUDAMQP_URL'])
 else
-  REDIS_EVEN = Redis.new
-  REDIS_ODD = Redis.new(port: 6380)
+  REDIS_EVEN = Redis.new(port: 6384)
+  REDIS_ODD = Redis.new(port: 6383)
+  REDIS_TIMELINE_HTML = Redis.new # port 6379
   rabbit = Bunny.new(automatically_recover: false)
 end
 
@@ -23,15 +23,12 @@ channel = rabbit.create_channel
 RABBIT_EXCHANGE = channel.default_exchange
 new_tweet = channel.queue('new_tweet.tweet_data')
 follower_ids = channel.queue('new_tweet.follower_ids')
-HTML_FANOUT = channel.queue('new_tweet.html_fanout')
 seed = channel.queue('tweet.data.seed')
-TIMELINE_SEED = channel.queue('timeline.html.seed')
 new_follow_sorted_tweets = channel.queue('new_follow.sorted_tweets')
-SORTED_HTML = channel.queue('new_follow.sorted_html')
 
 # Re-renders & publishes the HTML upon receiving new/modified Timeline Tweet IDs.
 new_follow_sorted_tweets.subscribe(block: false) do |delivery_info, properties, body|
-  publish_new_timeline_html(JSON.parse(body))
+  cache_new_timeline_html(JSON.parse(body))
 end
 
 # Takes a new_tweet payload, generates the Tweet's html & caches it.
@@ -49,20 +46,21 @@ seed.subscribe(block: false) do |delivery_info, properties, body|
   seed_tweets(JSON.parse(body))
 end
 
+def redis_from_uri(key)
+  uri = URI.parse(ENV[key])
+  Redis.new(host: uri.host, port: uri.port, password: uri.password)
+end
+
 # Given a payload with a Timeline Owner/Follower ID & new Timeline Tweet IDs,
 # renders & publishes new Timeline HTML.
-def publish_new_timeline_html(body)
+def cache_new_timeline_html(body)
   sorted_tweet_ids = body['sorted_tweet_ids'].map(&:to_i)
   evens = sorted_tweet_ids.select(&:even?)
   odds = sorted_tweet_ids.select(&:odd?)
   even_html_map = REDIS_EVEN.mapped_mget(evens)
   odd_html_map = REDIS_ODD.mapped_mget(odds)
   new_html = even_html_map.merge(odd_html_map).sort_by { |k, v| k }.map(&:last).join
-  payload = {
-    owner_id: body['follower_id'],
-    new_timeline_html: new_html
-  }.to_json
-  RABBIT_EXCHANGE.publish(payload, routing_key: SORTED_HTML.name)
+  REDIS_TIMELINE_HTML.set(body['follower_id'].to_i, new_html)
 end
 
 def get_shard(tweet_id)
@@ -91,15 +89,11 @@ end
 def fanout_to_html(body)
   tweet_id = body['tweet_id'].to_i
   redis_shard = get_shard(tweet_id)
-  payload = {
-    tweet_html: redis_shard.get(tweet_id),
-    user_ids: body['follower_ids']
-  }.to_json
-  RABBIT_EXCHANGE.publish(payload, routing_key: HTML_FANOUT.name)
+  tweet_html = redis_shard.get(tweet_id)
+  body['follower_ids'].each { |f_id| REDIS_TIMELINE_HTML.set(f_id.to_i, tweet_html) }
 end
 
 def seed_tweets(body)
-  payload = []
   body.each do |timeline|
     timeline_owner_id = timeline['owner_id']
     tweets = timeline['sorted_tweets']
@@ -109,7 +103,6 @@ def seed_tweets(body)
       tweet_id = tweet['tweet_id'].to_i
       tweets_as_html << get_shard(tweet_id).get(tweet_id)
     end
-    payload << { owner_id: timeline_owner_id, sorted_tweets: tweets_as_html } unless timeline_owner_id == -1
+    REDIS_TIMELINE_HTML.set(timeline_owner_id.to_i, tweets_as_html.join) unless timeline_owner_id == -1
   end
-  RABBIT_EXCHANGE.publish(payload.to_json, routing_key: TIMELINE_SEED.name)
 end
