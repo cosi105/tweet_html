@@ -23,6 +23,8 @@ describe 'NanoTwitter' do
   before do
     REDIS_EVEN.flushall
     REDIS_ODD.flushall
+    REDIS_SEARCH_HTML.flushall
+    REDIS_TIMELINE_HTML.flushall
     @tweet_id = 1
     @tweet_body = 'Scalability is the best'
     @author_handle = 'Ari'
@@ -143,5 +145,15 @@ describe 'NanoTwitter' do
     sleep 3
     expected_timeline_html = @expected_html + expected_html2
     REDIS_TIMELINE_HTML.get(2).must_equal expected_timeline_html
+  end
+
+  it 'can cache search results' do
+    publish_tweet(@tweet)
+    payload = {
+      tweet_id: 1,
+      tokens: %w[scalability is the best]
+    }.to_json
+    cache_tokens(JSON.parse(payload))
+    %w[scalability is the best].each { |token| REDIS_SEARCH_HTML.lrange(token, 0, -1).must_equal([@expected_html]) }
   end
 end
