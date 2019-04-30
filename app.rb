@@ -1,3 +1,9 @@
+# TweetHTML Micro-Service (port 8080)
+# Caches:
+#   - EvenTweetsHTML (port 6384)
+#   - OddTweetsHTML (port 6383)
+#   - TimelineHTML (port 6379)
+
 require 'bundler'
 require 'json'
 Bundler.require
@@ -103,7 +109,7 @@ def render_html(body)
   tweet_body = body['tweet_body']
   tweet_created = body['tweet_created']
   author_handle = body['author_handle']
-  "<li>#{tweet_body}<br>- #{author_handle} #{tweet_created}</li>"
+  "<div class=\"tweet-container\"><div class=\"tweet-body\">#{tweet_body}</div><div class=\"tweet-signature\">#{author_handle}</div><div class=\"tweet-created\">#{tweet_created}</div></div>"
 end
 
 # Fetches a Tweet's HTML from the appropriate Redis shard, then
