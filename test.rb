@@ -156,6 +156,10 @@ describe 'NanoTwitter' do
       tokens: %w[scalability is the best]
     }.to_json
     cache_tokens(JSON.parse(payload))
-    %w[scalability is the best].each { |token| REDIS_SEARCH_HTML.lrange(token, 0, -1).must_equal([@expected_html]) }
+    sleep 1
+    %w[scalability is the best].each do |token|
+      REDIS_SEARCH_HTML.lrange(token, 0, -1).must_equal([@expected_html])
+      REDIS_SEARCH_HTML.get("#{token}:joined").must_equal @expected_html
+    end
   end
 end

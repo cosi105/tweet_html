@@ -70,11 +70,13 @@ def cache_tokens(body)
   tweet_id = body['tweet_id'].to_i
   shard = get_shard(tweet_id)
   tweet_html = shard.get(tweet_id)
-  body['tokens'].to_set.each do |token|
+  tokens = body['tokens'].to_set
+  tokens.each do |token|
     REDIS_SEARCH_HTML.lpush(token, tweet_html)
     REDIS_SEARCH_HTML.ltrim(token, 0, 50)
-    puts "Cached token: #{token}"
   end
+  Thread.new { tokens.each { |token| REDIS_SEARCH_HTML.set("#{token}:joined", REDIS_SEARCH_HTML.lrange(token, 0, -1).join) } }
+  puts "Cached search results for tweet: #{tweet_id}"
 end
 
 # Given a payload with a Timeline Owner/Follower ID & new Timeline Tweet IDs,
