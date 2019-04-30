@@ -97,7 +97,6 @@ def get_shard(tweet_id)
 end
 
 def json_to_html(tweet)
-  puts "NOW CACHING: #{tweet}"
   tweet_id = tweet['tweet_id'].to_i
   redis_shard = get_shard(tweet_id)
   unless redis_shard.exists(tweet_id)
