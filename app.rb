@@ -43,6 +43,8 @@ SEARCH_TWEET = channel.queue('new_tweet.searcher.tweet_data')
 SEARCH_TWEET_SEED = channel.queue('searcher.data.seed')
 cache_purge = channel.queue('cache.purge.tweet_html')
 
+PAGE_SIZE = 10
+
 # Re-renders & publishes the HTML upon receiving new/modified Timeline Tweet IDs.
 new_follow_sorted_tweets.subscribe(block: false) do |delivery_info, properties, body|
   cache_new_timeline_html(JSON.parse(body))
@@ -77,7 +79,7 @@ def cache_tokens(body)
   tokens = body['tokens']
   tokens.each do |token|
     REDIS_SEARCH_HTML.lpush(token, tweet_html)
-    REDIS_SEARCH_HTML.ltrim(token, 0, 50)
+    REDIS_SEARCH_HTML.ltrim(token, 0, PAGE_SIZE)
     REDIS_SEARCH_HTML.set("#{token}:joined", REDIS_SEARCH_HTML.lrange(token, 0, -1).join)
   end
   puts "Cached search results for tweet: #{tweet_id}"
@@ -92,7 +94,7 @@ def cache_new_timeline_html(body)
   even_html_map = REDIS_EVEN.mapped_mget(evens)
   odd_html_map = REDIS_ODD.mapped_mget(odds)
   all_html = even_html_map.merge(odd_html_map).sort_by { |k, v| k }.map(&:last)
-  new_html = all_html[0..50].join
+  new_html = all_html[0..PAGE_SIZE].join
   REDIS_TIMELINE_HTML.set(body['follower_id'].to_i, new_html)
 end
 
@@ -137,5 +139,5 @@ def seed_tweets(body)
     tweets_as_html << get_shard(tweet_id).get(tweet_id)
   end
   RABBIT_EXCHANGE.publish(tweets.to_json, routing_key: SEARCH_TWEET_SEED.name)
-  REDIS_TIMELINE_HTML.set(timeline_owner_id.to_i, tweets_as_html[0..50].join) unless timeline_owner_id == -1
+  REDIS_TIMELINE_HTML.set(timeline_owner_id.to_i, tweets_as_html[0..PAGE_SIZE].join) unless timeline_owner_id == -1
 end
