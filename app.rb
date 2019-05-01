@@ -34,11 +34,12 @@ end
 rabbit.start
 channel = rabbit.create_channel
 RABBIT_EXCHANGE = channel.default_exchange
-NEW_TWEET = channel.queue('new_tweet.tweet_data')
+new_tweet = channel.queue('new_tweet.tweet_data')
 follower_ids = channel.queue('new_tweet.follower_ids')
 seed = channel.queue('timeline.data.seed.tweet_html')
 new_follow_sorted_tweets = channel.queue('new_follow.sorted_tweets')
 search_html = channel.queue('searcher.html')
+SEARCH_TWEET = channel.queue('searcher.data.seed')
 
 # Re-renders & publishes the HTML upon receiving new/modified Timeline Tweet IDs.
 new_follow_sorted_tweets.subscribe(block: false) do |delivery_info, properties, body|
@@ -46,7 +47,7 @@ new_follow_sorted_tweets.subscribe(block: false) do |delivery_info, properties, 
 end
 
 # Takes a new_tweet payload, generates the Tweet's html & caches it.
-NEW_TWEET.subscribe(block: false) do |delivery_info, properties, body|
+new_tweet.subscribe(block: false) do |delivery_info, properties, body|
   json_to_html(JSON.parse(body))
 end
 
@@ -103,6 +104,7 @@ def json_to_html(tweet)
     tweet_html = render_html(tweet)
     redis_shard.set(tweet_id, tweet_html)
     puts "Rendered tweet #{tweet['tweet_id']}"
+    RABBIT_EXCHANGE.publish(tweet.to_json, routing_key: SEARCH_TWEET.name)
   end
 end
 
@@ -124,17 +126,13 @@ def fanout_to_html(body)
 end
 
 def seed_tweets(body)
-  timeline_owner_id = body['owner_id'].to_i
+  timeline_owner_id = body['owner_id']
   tweets = body['sorted_tweets']
   tweets_as_html = []
-  if timeline_owner_id == -1
-    tweets.each { |tweet| RABBIT_EXCHANGE.publish(tweet.to_json, routing_key: NEW_TWEET.name) }
-  else
-    tweets.each do |tweet|
-      json_to_html(tweet)
-      tweet_id = tweet['tweet_id'].to_i
-      tweets_as_html << get_shard(tweet_id).get(tweet_id)
-    end
+  tweets.each do |tweet|
+    json_to_html(tweet)
+    tweet_id = tweet['tweet_id'].to_i
+    tweets_as_html << get_shard(tweet_id).get(tweet_id)
   end
-  REDIS_TIMELINE_HTML.set(timeline_owner_id, tweets_as_html[0..50].join) unless timeline_owner_id == -1
+  REDIS_TIMELINE_HTML.set(timeline_owner_id.to_i, tweets_as_html[0..50].join) unless timeline_owner_id == -1
 end
