@@ -43,7 +43,7 @@ SEARCH_TWEET = channel.queue('new_tweet.searcher.tweet_data')
 SEARCH_TWEET_SEED = channel.queue('searcher.data.seed')
 cache_purge = channel.queue('cache.purge.tweet_html')
 
-PAGE_SIZE = 10
+PAGE_SIZE = 50
 
 # Re-renders & publishes the HTML upon receiving new/modified Timeline Tweet IDs.
 new_follow_sorted_tweets.subscribe(block: false) do |delivery_info, properties, body|
