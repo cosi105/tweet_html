@@ -40,6 +40,7 @@ seed = channel.queue('timeline.data.seed.tweet_html')
 new_follow_sorted_tweets = channel.queue('new_follow.sorted_tweets')
 search_html = channel.queue('searcher.html')
 SEARCH_TWEET = channel.queue('new_tweet.searcher.tweet_data')
+SEARCH_TWEET_SEED = channel.queue('searcher.data.seed')
 
 # Re-renders & publishes the HTML upon receiving new/modified Timeline Tweet IDs.
 new_follow_sorted_tweets.subscribe(block: false) do |delivery_info, properties, body|
@@ -49,6 +50,7 @@ end
 # Takes a new_tweet payload, generates the Tweet's html & caches it.
 new_tweet.subscribe(block: false) do |delivery_info, properties, body|
   json_to_html(JSON.parse(body))
+  RABBIT_EXCHANGE.publish(body, routing_key: SEARCH_TWEET.name)
 end
 
 # Generates a payload containing a new tweet's HTML & the IDs of followers
@@ -104,7 +106,6 @@ def json_to_html(tweet)
     tweet_html = render_html(tweet)
     redis_shard.set(tweet_id, tweet_html)
     puts "Rendered tweet #{tweet['tweet_id']}"
-    RABBIT_EXCHANGE.publish(tweet.to_json, routing_key: SEARCH_TWEET.name)
   end
 end
 
@@ -134,5 +135,6 @@ def seed_tweets(body)
     tweet_id = tweet['tweet_id'].to_i
     tweets_as_html << get_shard(tweet_id).get(tweet_id)
   end
+  RABBIT_EXCHANGE.publish(tweets.to_json, routing_key: SEARCH_TWEET.name)
   REDIS_TIMELINE_HTML.set(timeline_owner_id.to_i, tweets_as_html[0..50].join) unless timeline_owner_id == -1
 end
