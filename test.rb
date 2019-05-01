@@ -32,7 +32,7 @@ describe 'NanoTwitter' do
     @tweet_created = DateTime.now
     @tweet = { tweet_id: @tweet_id, tweet_body: @tweet_body, author_handle: @author_handle, tweet_created: @tweet_created }.to_json
 
-    @expected_html = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created}</div></div>"
+    @expected_html = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created.strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
   end
 
   it 'can render a tweet as HTML' do
@@ -55,7 +55,7 @@ describe 'NanoTwitter' do
     REDIS_EVEN.keys.count.must_equal 1
     REDIS_ODD.keys.count.must_equal 1
     REDIS_ODD.get('1').must_equal @expected_html
-    REDIS_EVEN.get('2').must_equal "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created}</div></div>"
+    REDIS_EVEN.get('2').must_equal "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created.strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
   end
 
   it 'can fan out a tweet to followers' do
@@ -83,7 +83,7 @@ describe 'NanoTwitter' do
     tweet2 = JSON.parse @tweet
     tweet2['tweet_id'] = '2'
     tweet2['tweet_body'] = @tweet_body + '!'
-    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created}</div></div>"
+    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created.strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
     payload = { owner_id: 2,
                  sorted_tweets: [JSON.parse(@tweet), tweet2] }.to_json
     seed_tweets(JSON.parse(payload))
@@ -99,7 +99,7 @@ describe 'NanoTwitter' do
     tweet2 = JSON.parse @tweet
     tweet2['tweet_id'] = '2'
     tweet2['tweet_body'] = @tweet_body + '!'
-    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created}</div></div>"
+    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created.strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
     payload = { owner_id: 2,
                  sorted_tweets: [JSON.parse(@tweet), tweet2] }.to_json
     RABBIT_EXCHANGE.publish(payload, routing_key: 'timeline.data.seed.tweet_html')
@@ -116,7 +116,7 @@ describe 'NanoTwitter' do
     tweet2 = JSON.parse @tweet
     tweet2['tweet_id'] = '2'
     tweet2['tweet_body'] = @tweet_body + '!'
-    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created}</div></div>"
+    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created.strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
     seed_payload = { owner_id: 2,
                  sorted_tweets: [JSON.parse(@tweet), tweet2] }.to_json
     seed_tweets(JSON.parse(seed_payload))
@@ -134,7 +134,7 @@ describe 'NanoTwitter' do
     tweet2 = JSON.parse @tweet
     tweet2['tweet_id'] = '2'
     tweet2['tweet_body'] = @tweet_body + '!'
-    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created}</div></div>"
+    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created.strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
     seed_payload = { owner_id: 2,
                  sorted_tweets: [JSON.parse(@tweet), tweet2] }.to_json
     seed_tweets(JSON.parse(seed_payload))

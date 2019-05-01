@@ -117,7 +117,7 @@ def render_html(body)
   tweet_body = body['tweet_body']
   tweet_created = body['tweet_created']
   author_handle = body['author_handle']
-  "<div class=\"tweet-container\"><div class=\"tweet-body\">#{tweet_body}</div><div class=\"tweet-signature\">#{author_handle}</div><div class=\"tweet-created\">#{tweet_created}</div></div>"
+  "<div class=\"tweet-container\"><div class=\"tweet-body\">#{tweet_body}</div><div class=\"tweet-signature\">#{author_handle}</div><div class=\"tweet-created\">#{DateTime.strptime(tweet_created, '%Y-%m-%dT%H:%M:%S%z').strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
 end
 
 # Fetches a Tweet's HTML from the appropriate Redis shard, then
