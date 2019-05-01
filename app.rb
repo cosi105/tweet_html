@@ -71,7 +71,7 @@ def cache_tokens(body)
   tweet_id = body['tweet_id'].to_i
   shard = get_shard(tweet_id)
   tweet_html = shard.get(tweet_id)
-  tokens = body['tokens'].to_set
+  tokens = body['tokens']
   tokens.each do |token|
     REDIS_SEARCH_HTML.lpush(token, tweet_html)
     REDIS_SEARCH_HTML.ltrim(token, 0, 50)
