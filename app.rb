@@ -74,8 +74,8 @@ def cache_tokens(body)
   tokens.each do |token|
     REDIS_SEARCH_HTML.lpush(token, tweet_html)
     REDIS_SEARCH_HTML.ltrim(token, 0, 50)
+    REDIS_SEARCH_HTML.set("#{token}:joined", REDIS_SEARCH_HTML.lrange(token, 0, -1).join)
   end
-  Thread.new { tokens.each { |token| REDIS_SEARCH_HTML.set("#{token}:joined", REDIS_SEARCH_HTML.lrange(token, 0, -1).join) } }
   puts "Cached search results for tweet: #{tweet_id}"
 end
 
