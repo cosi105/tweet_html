@@ -39,7 +39,7 @@ follower_ids = channel.queue('new_tweet.follower_ids')
 seed = channel.queue('timeline.data.seed.tweet_html')
 new_follow_sorted_tweets = channel.queue('new_follow.sorted_tweets')
 search_html = channel.queue('searcher.html')
-SEARCH_TWEET = channel.queue('searcher.data.seed')
+SEARCH_TWEET = channel.queue('new_tweet.searcher.tweet_data')
 
 # Re-renders & publishes the HTML upon receiving new/modified Timeline Tweet IDs.
 new_follow_sorted_tweets.subscribe(block: false) do |delivery_info, properties, body|
