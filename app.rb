@@ -135,6 +135,6 @@ def seed_tweets(body)
     tweet_id = tweet['tweet_id'].to_i
     tweets_as_html << get_shard(tweet_id).get(tweet_id)
   end
-  RABBIT_EXCHANGE.publish(tweets.to_json, routing_key: SEARCH_TWEET.name)
+  RABBIT_EXCHANGE.publish(tweets.to_json, routing_key: SEARCH_TWEET_SEED.name)
   REDIS_TIMELINE_HTML.set(timeline_owner_id.to_i, tweets_as_html[0..50].join) unless timeline_owner_id == -1
 end
