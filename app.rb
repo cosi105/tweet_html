@@ -41,6 +41,7 @@ new_follow_sorted_tweets = channel.queue('new_follow.sorted_tweets')
 search_html = channel.queue('searcher.html')
 SEARCH_TWEET = channel.queue('new_tweet.searcher.tweet_data')
 SEARCH_TWEET_SEED = channel.queue('searcher.data.seed')
+cache_purge = channel.queue('cache.purge.tweet_html')
 
 # Re-renders & publishes the HTML upon receiving new/modified Timeline Tweet IDs.
 new_follow_sorted_tweets.subscribe(block: false) do |delivery_info, properties, body|
@@ -60,10 +61,10 @@ follower_ids.subscribe(block: false) do |delivery_info, properties, body|
 end
 
 seed.subscribe(block: false) do |delivery_info, properties, body|
-  REDIS_EVEN.flushall
-  REDIS_ODD.flushall
   seed_tweets(JSON.parse(body))
 end
+
+cache_purge.subscribe(block: false) { [REDIS_EVEN, REDIS_ODD].flushall }
 
 search_html.subscribe(block: false) do |delivery_info, properties, body|
   cache_tokens(JSON.parse(body))
