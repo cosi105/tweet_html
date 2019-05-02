@@ -94,7 +94,7 @@ def cache_new_timeline_html(body)
   even_html_map = REDIS_EVEN.mapped_mget(evens)
   odd_html_map = REDIS_ODD.mapped_mget(odds)
   all_html = even_html_map.merge(odd_html_map).sort_by { |k, v| k }.map(&:last)
-  new_html = all_html[0..PAGE_SIZE].join
+  new_html = all_html[0..PAGE_SIZE].join 
   REDIS_TIMELINE_HTML.set(body['follower_id'].to_i, new_html)
 end
 
@@ -126,7 +126,7 @@ def fanout_to_html(body)
   tweet_id = body['tweet_id'].to_i
   redis_shard = get_shard(tweet_id)
   tweet_html = redis_shard.get(tweet_id)
-  body['follower_ids'].each { |f_id| REDIS_TIMELINE_HTML.set(f_id.to_i, tweet_html) }
+  body['follower_ids'].each { |f_id| REDIS_TIMELINE_HTML.set(f_id.to_i, tweet_html + REDIS_TIMELINE_HTML.get(f_id.to_i)) }
 end
 
 def seed_tweets(body)
