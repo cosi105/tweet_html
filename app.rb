@@ -126,7 +126,10 @@ def fanout_to_html(body)
   tweet_id = body['tweet_id'].to_i
   redis_shard = get_shard(tweet_id)
   tweet_html = redis_shard.get(tweet_id)
-  body['follower_ids'].each { |f_id| REDIS_TIMELINE_HTML.set(f_id.to_i, tweet_html + REDIS_TIMELINE_HTML.get(f_id.to_i)) }
+  body['follower_ids'].each do |f_id|
+    existing_html = REDIS_TIMELINE_HTML.get(f_id.to_i) || ''
+    REDIS_TIMELINE_HTML.set(f_id.to_i, tweet_html + existing_html)
+  end
 end
 
 def seed_tweets(body)
