@@ -157,4 +157,28 @@ describe 'NanoTwitter' do
 
     resp_body.length.must_equal 'scalability'.length * 50
   end
+
+  it 'can seed tweet HTML from a CSV' do
+    data = [[1, "<div class=\"tweet-container\"><div class=\"tweet-body\">Scalability is the best</div><div class=\"tweet-signature\">@ari</div><div class=\"tweet-created\">2/21/2013 9:31 PM</div></div>"]]
+    CSV.open('temp.csv', 'wb') { |csv| data.each { |row| csv << row}}
+    post '/seed/tweets', csv_url: './temp.csv'
+    File.delete('temp.csv')
+    REDIS_ODD.get(1).must_equal "<div class=\"tweet-container\"><div class=\"tweet-body\">Scalability is the best</div><div class=\"tweet-signature\">@ari</div><div class=\"tweet-created\">2/21/2013 9:31 PM</div></div>"
+  end
+
+  it 'can seed timeline HTML from a CSV' do
+    data = [[1, "<div class=\"tweet-container\"><div class=\"tweet-body\">Scalability is the best</div><div class=\"tweet-signature\">@ari</div><div class=\"tweet-created\">2/21/2013 9:31 PM</div></div>"]]
+    CSV.open('temp.csv', 'wb') { |csv| data.each { |row| csv << row}}
+    post '/seed/timeline', csv_url: './temp.csv'
+    File.delete('temp.csv')
+    REDIS_TIMELINE_HTML.get(1).must_equal "<div class=\"tweet-container\"><div class=\"tweet-body\">Scalability is the best</div><div class=\"tweet-signature\">@ari</div><div class=\"tweet-created\">2/21/2013 9:31 PM</div></div>"
+  end
+
+  it 'can seed search HTML from a CSV' do
+    data = [['scalability', "<div class=\"tweet-container\"><div class=\"tweet-body\">Scalability is the best</div><div class=\"tweet-signature\">@ari</div><div class=\"tweet-created\">2/21/2013 9:31 PM</div></div>", "<div class=\"tweet-container\"><div class=\"tweet-body\">I love scalability</div><div class=\"tweet-signature\">@ari</div><div class=\"tweet-created\">2/21/2013 9:31 PM</div></div>"]]
+    CSV.open('temp.csv', 'wb') { |csv| data.each { |row| csv << row}}
+    post '/seed/search', csv_url: './temp.csv'
+    File.delete('temp.csv')
+    REDIS_SEARCH_HTML.lrange('scalability', 0, -1).sort.must_equal ["<div class=\"tweet-container\"><div class=\"tweet-body\">I love scalability</div><div class=\"tweet-signature\">@ari</div><div class=\"tweet-created\">2/21/2013 9:31 PM</div></div>", "<div class=\"tweet-container\"><div class=\"tweet-body\">Scalability is the best</div><div class=\"tweet-signature\">@ari</div><div class=\"tweet-created\">2/21/2013 9:31 PM</div></div>"]
+  end
 end
