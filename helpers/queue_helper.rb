@@ -3,11 +3,9 @@ channel = @rabbit.create_channel
 RABBIT_EXCHANGE = channel.default_exchange
 new_tweet = channel.queue('new_tweet.tweet_data')
 follower_ids = channel.queue('new_tweet.follower_ids.timeline_html')
-seed = channel.queue('timeline.data.seed.tweet_html')
 new_follow_sorted_tweets = channel.queue('new_follow.sorted_tweets')
 search_html = channel.queue('searcher.html')
 SEARCH_TWEET = channel.queue('new_tweet.searcher.tweet_data')
-SEARCH_TWEET_SEED = channel.queue('searcher.data.seed')
 cache_purge = channel.queue('cache.purge.tweet_html')
 
 require 'pry-byebug'
@@ -72,19 +70,6 @@ def fanout_to_html(body)
   end
 end
 
-def seed_tweets(body)
-  timeline_owner_id = body['owner_id']
-  tweets = body['sorted_tweets']
-  tweets_as_html = []
-  tweets.each do |tweet|
-    json_to_html(tweet)
-    tweet_id = tweet['tweet_id'].to_i
-    tweets_as_html << get_shard(tweet_id).get(tweet_id)
-  end
-  RABBIT_EXCHANGE.publish(tweets.to_json, routing_key: SEARCH_TWEET_SEED.name)
-  REDIS_TIMELINE_HTML.set(timeline_owner_id.to_i, tweets_as_html[0..PAGE_SIZE].join) unless timeline_owner_id == -1
-end
-
 # Re-renders & publishes the HTML upon receiving new/modified Timeline Tweet IDs.
 new_follow_sorted_tweets.subscribe(block: false) do |_delivery_info, _properties, body|
   cache_new_timeline_html(JSON.parse(body))
@@ -102,11 +87,7 @@ follower_ids.subscribe(block: false) do |_delivery_info, _properties, body|
   fanout_to_html(JSON.parse(body))
 end
 
-seed.subscribe(block: false) do |_delivery_info, _properties, body|
-  seed_tweets(JSON.parse(body))
-end
-
-cache_purge.subscribe(block: false) { [REDIS_EVEN, REDIS_ODD].flushall }
+cache_purge.subscribe(block: false) { [REDIS_EVEN, REDIS_ODD, REDIS_TIMELINE_HTML, REDIS_SEARCH_HTML].each(&:flushall) }
 
 search_html.subscribe(block: false) do |_delivery_info, _properties, body|
   cache_tokens(JSON.parse(body))

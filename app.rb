@@ -32,6 +32,5 @@ else
   @rabbit = Bunny.new(automatically_recover: false)
 end
 
-Dir["#{__dir__}/helpers/*rb"].each { |file| require file }
-
 PAGE_SIZE = 50
+Dir["#{__dir__}/helpers/*rb"].each { |file| require file }

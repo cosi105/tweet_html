@@ -81,47 +81,12 @@ describe 'NanoTwitter' do
     %w[2 3 4].each { |i| REDIS_TIMELINE_HTML.get(i).must_equal @expected_html }
   end
 
-  it 'can seed tweets' do
-    tweet2 = JSON.parse @tweet
-    tweet2['tweet_id'] = '2'
-    tweet2['tweet_body'] = @tweet_body + '!'
-    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{DateTime.strptime(@tweet_created, '%Y-%m-%dT%H:%M:%S.%LZ').strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
-    payload = { owner_id: 2,
-                 sorted_tweets: [JSON.parse(@tweet), tweet2] }.to_json
-    seed_tweets(JSON.parse(payload))
-    REDIS_EVEN.keys.count.must_equal 1
-    REDIS_ODD.keys.count.must_equal 1
-    REDIS_ODD.get('1').must_equal @expected_html
-    REDIS_EVEN.get('2').must_equal expected_html2
-    expected_timeline_html = @expected_html + expected_html2
-    REDIS_TIMELINE_HTML.get(2).must_equal expected_timeline_html
-  end
-
-  it 'can seed tweets from the seed queue' do
-    tweet2 = JSON.parse @tweet
-    tweet2['tweet_id'] = '2'
-    tweet2['tweet_body'] = @tweet_body + '!'
-    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{DateTime.strptime(@tweet_created, '%Y-%m-%dT%H:%M:%S.%LZ').strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
-    payload = { owner_id: 2,
-                 sorted_tweets: [JSON.parse(@tweet), tweet2] }.to_json
-    RABBIT_EXCHANGE.publish(payload, routing_key: 'timeline.data.seed.tweet_html')
-    sleep 3
-    REDIS_EVEN.keys.count.must_equal 1
-    REDIS_ODD.keys.count.must_equal 1
-    REDIS_ODD.get('1').must_equal @expected_html
-    REDIS_EVEN.get('2').must_equal expected_html2
-    expected_timeline_html = @expected_html + expected_html2
-    REDIS_TIMELINE_HTML.get(2).must_equal expected_timeline_html
-  end
-
   it 'can publish a new timeline' do
     tweet2 = JSON.parse @tweet
     tweet2['tweet_id'] = '2'
     tweet2['tweet_body'] = @tweet_body + '!'
     expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{DateTime.strptime(@tweet_created, '%Y-%m-%dT%H:%M:%S.%LZ').strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
-    seed_payload = { owner_id: 2,
-                 sorted_tweets: [JSON.parse(@tweet), tweet2] }.to_json
-    seed_tweets(JSON.parse(seed_payload))
+    [@tweet, tweet2.to_json].each { |t| json_to_html(JSON.parse t) }
 
     payload = {
       follower_id: 2,
@@ -137,9 +102,7 @@ describe 'NanoTwitter' do
     tweet2['tweet_id'] = '2'
     tweet2['tweet_body'] = @tweet_body + '!'
     expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{DateTime.strptime(@tweet_created, '%Y-%m-%dT%H:%M:%S.%LZ').strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
-    seed_payload = { owner_id: 2,
-                 sorted_tweets: [JSON.parse(@tweet), tweet2] }.to_json
-    seed_tweets(JSON.parse(seed_payload))
+    [@tweet, tweet2.to_json].each { |t| json_to_html(JSON.parse t) }
 
     payload = {
       follower_id: 2,
@@ -169,6 +132,7 @@ describe 'NanoTwitter' do
         follower_ids: [2]
       }.to_json
       %w[new_tweet.follower_ids.timeline_data new_tweet.follower_ids.timeline_html].each { |queue| RABBIT_EXCHANGE.publish(follower_id_payload, routing_key: queue) }
+      puts "Published tweet #{t[:tweet_id]}"
     end
 
     sleep 3
