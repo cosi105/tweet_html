@@ -8,8 +8,6 @@ search_html = channel.queue('searcher.html')
 SEARCH_TWEET = channel.queue('new_tweet.searcher.tweet_data')
 cache_purge = channel.queue('cache.purge.tweet_html')
 
-require 'pry-byebug'
-
 def cache_tokens(body)
   tweet_id = body['tweet_id'].to_i
   shard = get_shard(tweet_id)
