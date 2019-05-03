@@ -9,3 +9,5 @@
 coverage
 local_vars.env
 log
+searcher
+timeline_data
