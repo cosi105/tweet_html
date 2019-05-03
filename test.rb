@@ -26,13 +26,15 @@ describe 'NanoTwitter' do
     REDIS_ODD.flushall
     REDIS_SEARCH_HTML.flushall
     REDIS_TIMELINE_HTML.flushall
+    RABBIT_EXCHANGE.publish('', routing_key: 'cache.purge.timeline_data')
+    RABBIT_EXCHANGE.publish('', routing_key: 'cache.purge.searcher')
     @tweet_id = 1
     @tweet_body = 'Scalability is the best'
     @author_handle = 'Ari'
-    @tweet_created = DateTime.now
+    @tweet_created = DateTime.now.strftime('%Y-%m-%dT%H:%M:%S.%LZ')
     @tweet = { tweet_id: @tweet_id, tweet_body: @tweet_body, author_handle: @author_handle, tweet_created: @tweet_created }.to_json
 
-    @expected_html = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created.strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
+    @expected_html = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{DateTime.strptime(@tweet_created, '%Y-%m-%dT%H:%M:%S.%LZ').strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
   end
 
   it 'can render a tweet as HTML' do
@@ -55,7 +57,7 @@ describe 'NanoTwitter' do
     REDIS_EVEN.keys.count.must_equal 1
     REDIS_ODD.keys.count.must_equal 1
     REDIS_ODD.get('1').must_equal @expected_html
-    REDIS_EVEN.get('2').must_equal "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created.strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
+    REDIS_EVEN.get('2').must_equal "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{DateTime.strptime(@tweet_created, '%Y-%m-%dT%H:%M:%S.%LZ').strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
   end
 
   it 'can fan out a tweet to followers' do
@@ -74,7 +76,7 @@ describe 'NanoTwitter' do
       'tweet_id': '1',
       'follower_ids': %w[2 3 4]
     }.to_json
-    RABBIT_EXCHANGE.publish(follow_payload, routing_key: 'new_tweet.follower_ids')
+    RABBIT_EXCHANGE.publish(follow_payload, routing_key: 'new_tweet.follower_ids.timeline_html')
     sleep 3
     %w[2 3 4].each { |i| REDIS_TIMELINE_HTML.get(i).must_equal @expected_html }
   end
@@ -83,7 +85,7 @@ describe 'NanoTwitter' do
     tweet2 = JSON.parse @tweet
     tweet2['tweet_id'] = '2'
     tweet2['tweet_body'] = @tweet_body + '!'
-    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created.strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
+    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{DateTime.strptime(@tweet_created, '%Y-%m-%dT%H:%M:%S.%LZ').strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
     payload = { owner_id: 2,
                  sorted_tweets: [JSON.parse(@tweet), tweet2] }.to_json
     seed_tweets(JSON.parse(payload))
@@ -99,7 +101,7 @@ describe 'NanoTwitter' do
     tweet2 = JSON.parse @tweet
     tweet2['tweet_id'] = '2'
     tweet2['tweet_body'] = @tweet_body + '!'
-    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created.strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
+    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{DateTime.strptime(@tweet_created, '%Y-%m-%dT%H:%M:%S.%LZ').strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
     payload = { owner_id: 2,
                  sorted_tweets: [JSON.parse(@tweet), tweet2] }.to_json
     RABBIT_EXCHANGE.publish(payload, routing_key: 'timeline.data.seed.tweet_html')
@@ -116,7 +118,7 @@ describe 'NanoTwitter' do
     tweet2 = JSON.parse @tweet
     tweet2['tweet_id'] = '2'
     tweet2['tweet_body'] = @tweet_body + '!'
-    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created.strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
+    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{DateTime.strptime(@tweet_created, '%Y-%m-%dT%H:%M:%S.%LZ').strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
     seed_payload = { owner_id: 2,
                  sorted_tweets: [JSON.parse(@tweet), tweet2] }.to_json
     seed_tweets(JSON.parse(seed_payload))
@@ -134,7 +136,7 @@ describe 'NanoTwitter' do
     tweet2 = JSON.parse @tweet
     tweet2['tweet_id'] = '2'
     tweet2['tweet_body'] = @tweet_body + '!'
-    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{@tweet_created.strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
+    expected_html2 = "<div class=\"tweet-container\"><div class=\"tweet-body\">#{@tweet_body}!</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{DateTime.strptime(@tweet_created, '%Y-%m-%dT%H:%M:%S.%LZ').strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>"
     seed_payload = { owner_id: 2,
                  sorted_tweets: [JSON.parse(@tweet), tweet2] }.to_json
     seed_tweets(JSON.parse(seed_payload))
@@ -151,15 +153,44 @@ describe 'NanoTwitter' do
 
   it 'can cache search results' do
     publish_tweet(@tweet)
-    payload = {
-      tweet_id: 1,
-      tokens: %w[scalability is the best]
-    }.to_json
-    cache_tokens(JSON.parse(payload))
     sleep 1
     %w[scalability is the best].each do |token|
       REDIS_SEARCH_HTML.lrange(token, 0, -1).must_equal([@expected_html])
       REDIS_SEARCH_HTML.get("#{token}:joined").must_equal @expected_html
     end
+  end
+
+  it 'can get a new page of a timeline' do
+    tweets = Array.new(100) { |i| { tweet_id: i, tweet_body: i.to_s, author_handle: @author_handle, tweet_created: @tweet_created } }
+    tweets.each do |t|
+      RABBIT_EXCHANGE.publish(t.to_json, routing_key: 'new_tweet.tweet_data')
+      follower_id_payload = {
+        tweet_id: t[:tweet_id],
+        follower_ids: [2]
+      }.to_json
+      %w[new_tweet.follower_ids.timeline_data new_tweet.follower_ids.timeline_html].each { |queue| RABBIT_EXCHANGE.publish(follower_id_payload, routing_key: queue) }
+    end
+
+    sleep 3
+
+    expected_page_2 = tweets[50..99].map { |t| "<div class=\"tweet-container\"><div class=\"tweet-body\">#{t[:tweet_body]}</div><div class=\"tweet-signature\">#{t[:author_handle]}</div><div class=\"tweet-created\">#{DateTime.strptime(t[:tweet_created], '%Y-%m-%dT%H:%M:%S.%LZ').strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>" }.join
+
+    (get '/timeline?user_id=2&page_num=2').body.must_equal expected_page_2
+  end
+
+  it 'can get a new page of search results' do
+    tweets = Array.new(100) { |i| { tweet_id: i, tweet_body: "scalability", author_handle: @author_handle, tweet_created: @tweet_created } }
+    tweets.each do |t|
+      RABBIT_EXCHANGE.publish(t.to_json, routing_key: 'new_tweet.tweet_data')
+    end
+
+    sleep 3
+
+    resp_body = (get '/search?token=scalability&page_num=2').body
+
+    resp_body.gsub!("<div class=\"tweet-container\"><div class=\"tweet-body\">", '')
+    resp_body.gsub!("</div><div class=\"tweet-signature\">#{@author_handle}</div><div class=\"tweet-created\">#{DateTime.strptime(@tweet_created, '%Y-%m-%dT%H:%M:%S.%LZ').strftime("%-m/%-d/%Y %-l:%M %p")}</div></div>", "")
+
+    resp_body.length.must_equal 'scalability'.length * 50
   end
 end

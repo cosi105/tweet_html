@@ -1,6 +1,8 @@
 source 'http://rubygems.org'
 
 gem 'bunny'
+gem 'dotenv'
+gem 'httparty'
 gem 'minitest'
 gem 'puma'
 gem 'rack'
