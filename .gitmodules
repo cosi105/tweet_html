@@ -1,6 +1,6 @@
 [submodule "timeline_data"]
 	path = timeline_data
-	url = https://github.com/cosi105/timeline_data.git
+	url = git@github.com:cosi105/timeline_data.git
 [submodule "searcher"]
 	path = searcher
-	url = https://github.com/cosi105/searcher.git
+	url = git@github.com:cosi105/searcher.git
