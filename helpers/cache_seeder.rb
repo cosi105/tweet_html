@@ -35,8 +35,12 @@ post '/seed/search' do
   csv = CSV.parse(open(params[:csv_url]))
   csv.each do |line|
     key = line[0]
-    values = line.drop(1)
-    REDIS_SEARCH_HTML.lpush(key, values)
+    if key.include? ':joined'
+      REDIS_SEARCH_HTML.push(key, line[1])
+    else
+      values = line.drop(1)
+      REDIS_SEARCH_HTML.lpush(key, values)
+    end
   end
   puts 'Seeded tweet HTML!'
 end
