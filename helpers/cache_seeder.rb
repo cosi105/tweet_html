@@ -36,7 +36,7 @@ post '/seed/search' do
   csv.each do |line|
     key = line[0]
     if key.include? ':joined'
-      REDIS_SEARCH_HTML.push(key, line[1])
+      REDIS_SEARCH_HTML.set(key, line[1])
     else
       values = line.drop(1)
       REDIS_SEARCH_HTML.lpush(key, values)
